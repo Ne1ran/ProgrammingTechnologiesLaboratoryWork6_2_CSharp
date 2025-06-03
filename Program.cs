@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
 
-namespace ProgrammingTechnologiesLaboratoryWork6
+namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
 {
     static class Program
     {

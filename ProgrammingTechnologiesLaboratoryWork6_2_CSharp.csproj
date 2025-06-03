@@ -23,9 +23,6 @@
     <None Include="ProgrammingTechnologiesLaboratoryWork6_1.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="ProgrammingTechnologiesLaboratoryWork6_3.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
 </Project> 
