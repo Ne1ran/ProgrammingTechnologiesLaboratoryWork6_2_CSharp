@@ -105,7 +105,7 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
                                 continue;
                             }
 
-                            if (float.TryParse(zMatch.Groups[1].Value.Replace(',', '.'), out float z) && float.TryParse(xMatch.Groups[1].Value, out float x)
+                            if (float.TryParse(zMatch.Groups[1].Value, out float z) && float.TryParse(xMatch.Groups[1].Value, out float x)
                                 && float.TryParse(yMatch.Groups[1].Value, out float y)) {
                                 points.Add(new(x, y, z));
                             }
@@ -131,202 +131,125 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
 
         private void DrawFunction(PictureBox pictureBox, List<Point3D> points)
         {
-            if (points == null || points.Count == 0)
-            {
+            if (points == null || points.Count == 0) {
                 return;
             }
 
-            try
-            {
-                using (var bmp = new Bitmap(pictureBox.Width, pictureBox.Height))
-                {
-                    using (Graphics g = Graphics.FromImage(bmp))
-                    {
-                        g.Clear(Color.White);
-                        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            try {
+                using var bmp = new Bitmap(pictureBox.Width, pictureBox.Height);
+                using Graphics g = Graphics.FromImage(bmp);
 
-                        // Определяем границы данных
-                        float minX = points.Min(p => p.X);
-                        float maxX = points.Max(p => p.X);
-                        float minY = points.Min(p => p.Y);
-                        float maxY = points.Max(p => p.Y);
-                        float minZ = points.Min(p => p.Z);
-                        float maxZ = points.Max(p => p.Z);
+                g.Clear(Color.White);
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-                        // Угол для изометрической проекции (в радианах)
-                        double angle30Deg = Math.PI / 6.0; // 30 градусов
-                        double cos30 = Math.Cos(angle30Deg);
-                        double sin30 = Math.Sin(angle30Deg);
+                DrawingParameters parameters = CalculateDrawingParameters(points, pictureBox);
+                DrawAxes(g, parameters, pictureBox);
 
-                        // Определяем область рисования с отступами
-                        float padding = 40; // Отступ от краев PictureBox
-                        float drawAreaWidth = pictureBox.Width - 2 * padding;
-                        float drawAreaHeight = pictureBox.Height - 2 * padding;
+                PointF[] scaledPoints = Transform3DTo2D(points, parameters);
+                DrawPointsAndLines(g, scaledPoints);
 
-                        // Рассчитываем эффективное максимальное значение Z для масштабирования
-                        float effectiveMaxZForScaling = Math.Min(maxZ, 500.0f);
-                        // Убедимся, что эффективный minZ не больше effectiveMaxZForScaling
-                        float effectiveMinZForScaling = Math.Min(minZ, effectiveMaxZForScaling);
+                DrawAxisLabels(g, parameters, pictureBox);
 
-
-                        // Включаем точки осей в расчет границ проекции для корректного масштабирования осей
-                         var pointsForScaling = new List<Point3D>(points)
-                         {
-                             new Point3D(minX, minY, effectiveMinZForScaling), // Начало координат данных (с ограниченным Z)
-                             new Point3D(maxX, minY, effectiveMinZForScaling), // Конец оси X
-                             new Point3D(minX, maxY, effectiveMinZForScaling), // Конец оси Y
-                             new Point3D(minX, minY, effectiveMaxZForScaling) // Конец оси Z (с ограничением)
-                         };
-
-
-                        // Вычисляем границы проекции всех точек для определения точного масштаба
-                        float minProjectedX = float.MaxValue;
-                        float maxProjectedX = float.MinValue;
-                        float minProjectedY = float.MaxValue;
-                        float maxProjectedY = float.MinValue;
-
-                        foreach (Point3D point3D in pointsForScaling)
-                        {
-                            // Проектируем точку без учета масштаба и смещения, используя стандартную изометрию
-                            // При проекции для масштабирования используем ограниченное значение Z
-                            PointF projected = ProjectPointRaw(point3D, minX, minY, effectiveMinZForScaling, cos30, sin30);
-
-                            minProjectedX = Math.Min(minProjectedX, projected.X);
-                            maxProjectedX = Math.Max(maxProjectedX, projected.X);
-                            minProjectedY = Math.Min(minProjectedY, projected.Y);
-                            maxProjectedY = Math.Max(maxProjectedY, projected.Y);
-                        }
-
-                        // Рассчитываем точный масштаб на основе границ проекции
-                        float projectedRangeX = maxProjectedX - minProjectedX > 0 ? maxProjectedX - minProjectedX : 1.0f;
-                        float projectedRangeY = maxProjectedY - minProjectedY > 0 ? maxProjectedY - minProjectedY : 1.0f;
-
-                        float scaleX = drawAreaWidth / projectedRangeX;
-                        float scaleY = drawAreaHeight / projectedRangeY;
-
-                        float finalScale = Math.Min(scaleX, scaleY) * 0.9f; // Общий масштаб с небольшим запасом
-
-                         // Рассчитываем смещение для центрирования графика
-                        // Центр спроецированного прямоугольника
-                        float projectedCenterX = (minProjectedX + maxProjectedX) / 2f;
-                        float projectedCenterY = (minProjectedY + maxProjectedY) / 2f;
-
-                        // Центр области рисования
-                        float drawAreaCenterX = padding + drawAreaWidth / 2f;
-                        float drawAreaCenterY = padding + drawAreaHeight / 2f;
-
-                        // Смещение, чтобы центр проекции совпал с центром области рисования
-                        float offsetX = drawAreaCenterX - projectedCenterX * finalScale;
-                        float offsetY = drawAreaCenterY - projectedCenterY * finalScale;
-
-
-                        // Рисуем оси
-                        using (var axisPen = new Pen(Color.Black, 2))
-                        {
-                             // Начальная точка осей (проекция начала координат данных minX, minY, minZ)
-                            PointF origin = ProjectPointScaled(new Point3D(minX, minY, minZ), finalScale, offsetX, offsetY, cos30, sin30, minX, minY, minZ);
-
-                            // Ось X (черная)
-                            Point3D xAxisEndPoint3D = new Point3D(maxX, minY, minZ);
-                            PointF xAxisEnd = ProjectPointScaled(xAxisEndPoint3D, finalScale, offsetX, offsetY, cos30, sin30, minX, minY, minZ);
-                            g.DrawLine(axisPen, origin, xAxisEnd);
-                            g.DrawString("X", new Font("Arial", 10), Brushes.Black, xAxisEnd.X + 5, xAxisEnd.Y - 15);
-
-                            // Ось Y (черная)
-                            Point3D yAxisEndPoint3D = new Point3D(minX, maxY, minZ);
-                            PointF yAxisEnd = ProjectPointScaled(yAxisEndPoint3D, finalScale, offsetX, offsetY, cos30, sin30, minX, minY, minZ);
-                             g.DrawLine(axisPen, origin, yAxisEnd);
-                            g.DrawString("Y", new Font("Arial", 10), Brushes.Black, yAxisEnd.X - 15, yAxisEnd.Y - 5);
-
-                            // Ось Z (черная)
-                            Point3D zAxisEndPoint3D = new Point3D(minX, minY, effectiveMaxZForScaling); // Используем ограниченное значение Z для оси
-                            PointF zAxisEnd = ProjectPointScaled(zAxisEndPoint3D, finalScale, offsetX, offsetY, cos30, sin30, minX, minY, minZ);
-                             g.DrawLine(axisPen, origin, zAxisEnd);
-                            g.DrawString("Z", new Font("Arial", 10), Brushes.Black, zAxisEnd.X - 15, zAxisEnd.Y - 15);
-                        }
-
-                        // Проецируем и рисуем точки и линии
-                        using (var pointPen = new Pen(Color.Red, 3))
-                        using (var linePen = new Pen(Color.Blue, 2))
-                        {
-                            PointF previousPoint = PointF.Empty;
-                            bool firstPoint = true;
-
-                            foreach (Point3D point3D in points)
-                            {
-                                // Используем фактическое значение Z для проекции точки
-                                PointF projectedPoint = ProjectPointScaled(point3D, finalScale, offsetX, offsetY, cos30, sin30, minX, minY, minZ);
-
-                                // Рисуем точку
-                                g.DrawEllipse(pointPen, projectedPoint.X - 3, projectedPoint.Y - 3, 6, 6);
-
-                                // Рисуем линию к предыдущей точке
-                                if (!firstPoint)
-                                {
-                                    g.DrawLine(linePen, previousPoint, projectedPoint);
-                                }
-
-                                previousPoint = projectedPoint;
-                                firstPoint = false;
-                            }
-                        }
-
-                        // Сохраняем старое изображение
-                        Image oldImage = pictureBox.Image;
-
-                        // Создаем копию битмапа
-                        var newImage = new Bitmap(bmp);
-
-                        // Устанавливаем новое изображение
-                        pictureBox.Image = newImage;
-
-                        // Освобождаем старое изображение
-                        oldImage?.Dispose();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
+                UpdatePictureBox(pictureBox, bmp);
+            } catch (Exception ex) {
                 MessageBox.Show($"Ошибка при отрисовке графика: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        // Вспомогательный метод для изометрической проекции (без масштаба и смещения)
-        // Использует стандартную изометрическую проекцию под углом 30 градусов
-        private PointF ProjectPointRaw(Point3D point, float minX, float minY, float minZ, double cos30, double sin30)
+        private DrawingParameters CalculateDrawingParameters(List<Point3D> points, PictureBox pictureBox)
         {
-            // Смещаем точку так, чтобы начало координат данных (minX, minY, minZ) стало 0,0,0
-            float x = point.X - minX;
-            float y = point.Y - minY;
-            float z = point.Z - minZ;
+            var parameters = new DrawingParameters {
+                    MinX = MathF.Max(-100, points.Min(p => p.X)),
+                    MaxX = MathF.Min(100, points.Max(p => p.X)),
+                    MinY = MathF.Max(-100, points.Min(p => p.Y)),
+                    MaxY = MathF.Min(100, points.Max(p => p.Y)),
+                    MinZ = MathF.Max(-100, points.Min(p => p.Z)),
+                    MaxZ = MathF.Min(100, points.Max(p => p.Z))
+            };
 
-            // Применяем изометрическую проекцию
-            float projectedX = (float) ((x - y) * cos30);
-            // В стандартной изометрии Z добавляется к Y для вертикального положения
-            float projectedY = (float) (z + (x + y) * sin30);
+            float rangeX = parameters.MaxX - parameters.MinX;
+            float rangeY = parameters.MaxY - parameters.MinY;
+            float rangeZ = parameters.MaxZ - parameters.MinZ;
 
-            return new PointF(projectedX, projectedY);
+            float drawWidth = pictureBox.Width - 60;
+            float drawHeight = pictureBox.Height - 60;
+
+            float scaleX = rangeX > 0 ? drawWidth / rangeX : 1;
+            float scaleY = rangeY > 0 ? drawHeight / rangeY : 1;
+            float scaleZ = rangeZ > 0 ? drawHeight / rangeZ : 1;
+
+            parameters.BaseScale = Math.Min(scaleX, scaleY);
+            float zScaleMultiplier = 1.5f;
+            parameters.FinalZScale = scaleZ * zScaleMultiplier;
+
+            parameters.DrawCenterX = drawWidth / 2f + 30;
+            parameters.DrawCenterY = drawHeight / 2f + 30;
+
+            return parameters;
         }
 
-        // Вспомогательный метод для изометрической проекции (с масштабом и смещением)
-        private PointF ProjectPointScaled(Point3D point, float scale, float offsetX, float offsetY, double cos30, double sin30, float minX, float minY, float minZ)
+        private void DrawAxes(Graphics g, DrawingParameters parameters, PictureBox pictureBox)
         {
-            // Смещаем точку так, чтобы начало координат данных (minX, minY, minZ) стало 0,0,0
-            float x = point.X - minX;
-            float y = point.Y - minY;
-            float z = point.Z - minZ;
+            g.DrawLine(_basePen, 30, parameters.DrawCenterY, pictureBox.Width - 30, parameters.DrawCenterY);
+            g.DrawLine(_basePen, parameters.DrawCenterX, pictureBox.Height - 30, parameters.DrawCenterX, 30);
+            g.DrawLine(_basePen, parameters.DrawCenterX, parameters.DrawCenterY,
+                       parameters.DrawCenterX - parameters.FinalZScale * (parameters.MaxZ - parameters.MinZ) / 2f,
+                       parameters.DrawCenterY - parameters.FinalZScale * (parameters.MaxZ - parameters.MinZ) / 2f);
+        }
 
-            // Применяем изометрическую проекцию
-            float projectedX_raw = (float) ((x - y) * cos30);
-            float projectedY_raw = (float) (z + (x + y) * sin30);
+        private PointF[] Transform3DTo2D(List<Point3D> points, DrawingParameters parameters)
+        {
+            float rangeX = parameters.MaxX - parameters.MinX;
+            float rangeY = parameters.MaxY - parameters.MinY;
+            float rangeZ = parameters.MaxZ - parameters.MinZ;
 
-            // Масштабируем и применяем смещение.
-            // Y в Graphics растет вниз, поэтому вычитаем из offsetY
-            float projectedX = projectedX_raw * scale + offsetX;
-            float projectedY = offsetY - projectedY_raw * scale;
+            return points.Select(p => {
+                             float normalizedX = Math.Clamp(rangeX > 0 ? (p.X - parameters.MinX) / rangeX : 0.5f, -1f, 1f);
+                             float normalizedY = Math.Clamp(rangeY > 0 ? (p.Y - parameters.MinY) / rangeY : 0.5f, -1f, 1f);
+                             float normalizedZ = Math.Clamp(rangeZ > 0 ? (p.Z - parameters.MinZ) / rangeZ : 0.5f, -1f, 1f);
 
+                             float projectedX = parameters.DrawCenterX + (normalizedX * parameters.BaseScale - normalizedZ * parameters.FinalZScale);
+                             float projectedY = parameters.DrawCenterY
+                                                - (normalizedY * parameters.BaseScale + normalizedZ * parameters.FinalZScale * 0.5f);
 
-            return new PointF(projectedX, projectedY);
+                             return new PointF(projectedX, projectedY);
+                         })
+                         .ToArray();
+        }
+
+        private void DrawPointsAndLines(Graphics g, PointF[] scaledPoints)
+        {
+            foreach (PointF point in scaledPoints) {
+                try {
+                    g.DrawEllipse(_graphicsPen, point.X - 1, point.Y - 1, 2, 2);
+                } catch (Exception e) {
+                    Console.WriteLine(e);
+                }
+            }
+
+            using var linePen = new Pen(Color.Blue, 2);
+            for (int i = 0; i < scaledPoints.Length - 1; i++) {
+                g.DrawLine(linePen, scaledPoints[i], scaledPoints[i + 1]);
+            }
+        }
+
+        private void DrawAxisLabels(Graphics g, DrawingParameters parameters, PictureBox pictureBox)
+        {
+            using var font = new Font("Arial", 10);
+            using var brush = new SolidBrush(Color.Black);
+
+            g.DrawString("X", font, brush, pictureBox.Width - 20, parameters.DrawCenterY - 20);
+            g.DrawString("Y", font, brush, parameters.DrawCenterX - 20, 20);
+            g.DrawString("Z", font, brush, parameters.DrawCenterX - parameters.FinalZScale * (parameters.MaxZ - parameters.MinZ) / 2f - 20,
+                         parameters.DrawCenterY - parameters.FinalZScale * (parameters.MaxZ - parameters.MinZ) / 2f - 20);
+        }
+
+        private void UpdatePictureBox(PictureBox pictureBox, Bitmap bmp)
+        {
+            Image oldImage = pictureBox.Image;
+            var newImage = new Bitmap(bmp);
+            pictureBox.Image = newImage;
+            oldImage?.Dispose();
         }
 
         private void UpdateUI(string startTime, string finishTime, string duration, int threadId, int progressValue)
