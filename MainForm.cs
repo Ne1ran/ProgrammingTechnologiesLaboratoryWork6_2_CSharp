@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -20,10 +19,6 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
         private Pen _graphicsPen = null!;
         private CancellationTokenSource _cancellationTokenSource;
 
-        private float _calculatingStep; // Шаг для X. Чем меньше - тем лучше график выглядит
-        private int _maxX; // Ограничение по X для графика. Это значение отражает, сколько X мы подразумеваем в графике
-        private int _maxY; // Ограничение по Y для графика. Это значение отражает, сколько Y мы подразумеваем в графике
-
         public MainForm()
         {
             InitializeComponent();
@@ -35,9 +30,6 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
         {
             _basePen = new(Color.Black);
             _graphicsPen = new(Color.Red);
-            _calculatingStep = 0.1f; // Задаем количество точек в графике. Чем больше, тем более четким он получится
-            _maxX = 10;
-            _maxY = 10;
         }
 
         private void Button1_Click(object sender, EventArgs e)
@@ -141,15 +133,11 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
 
                 g.Clear(Color.White);
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
                 DrawingParameters parameters = CalculateDrawingParameters(points, pictureBox);
                 DrawAxes(g, parameters, pictureBox);
-
                 PointF[] scaledPoints = Transform3DTo2D(points, parameters);
                 DrawPointsAndLines(g, scaledPoints);
-
                 DrawAxisLabels(g, parameters, pictureBox);
-
                 UpdatePictureBox(pictureBox, bmp);
             } catch (Exception ex) {
                 MessageBox.Show($"Ошибка при отрисовке графика: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
