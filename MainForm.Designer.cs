@@ -318,7 +318,7 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
             Controls.Add(label1);
             Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             Name = "MainForm";
-            Text = "Лабораторная работа №6";
+            Text = "Курсовая работа";
             Load += MainForm_Load_1;
             ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
             ResumeLayout(false);

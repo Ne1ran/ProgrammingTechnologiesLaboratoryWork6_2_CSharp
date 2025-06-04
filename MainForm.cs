@@ -12,12 +12,24 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
 {
     public partial class MainForm : Form
     {
+        /// <summary>
+        /// Путь к файлу, куда записываются результаты вычислений из DLL.
+        /// </summary>
         private const string ThreadResultFilePath = @"C:\Save\resultsDll.txt";
 
+        /// <summary>
+        /// Список активных потоков для вычислений.
+        /// Используется для контроля и остановки потоков при необходимости.
+        /// </summary>
         private readonly List<Thread> _threads = new();
+
+        /// <summary>
+        /// Токен отмены для корректного завершения асинхронных операций.
+        /// </summary>
+        private CancellationTokenSource _cancellationTokenSource;
+
         private Pen _basePen = null!;
         private Pen _graphicsPen = null!;
-        private CancellationTokenSource _cancellationTokenSource;
 
         public MainForm()
         {
@@ -37,6 +49,10 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
             Close();
         }
 
+        /// <summary>
+        /// Запускает многопоточные вычисления с заданными параметрами.
+        /// Создает отдельный поток для каждого набора вычислений.
+        /// </summary>
         private async void Button2_Click(object sender, EventArgs e)
         {
             StopThreads();
@@ -69,9 +85,15 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
             }
 
             await Task.WhenAll(tasks);
+            progressBar1.Value = 100;
+            progressBar1.Refresh();
             await DrawResults();
         }
 
+        /// <summary>
+        /// Читает результаты вычислений из файла и преобразует их в список точек.
+        /// Обрабатывает формат: [x][y] z = value, x = value, y = value;
+        /// </summary>
         private List<Point3D> ReadResultsFromFile()
         {
             List<Point3D> points = new();
@@ -144,6 +166,10 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
             }
         }
 
+        /// <summary>
+        /// Рассчитывает параметры отрисовки на основе набора точек.
+        /// Определяет границы осей, масштабы и центры отрисовки.
+        /// </summary>
         private DrawingParameters CalculateDrawingParameters(List<Point3D> points, PictureBox pictureBox)
         {
             var parameters = new DrawingParameters {
@@ -185,6 +211,10 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
                        parameters.DrawCenterY - parameters.FinalZScale * (parameters.MaxZ - parameters.MinZ) / 2f);
         }
 
+        /// <summary>
+        /// Преобразует трехмерные координаты в двухмерные для отображения на экране.
+        /// Учитывает масштабирование и центрирование графика.
+        /// </summary>
         private PointF[] Transform3DTo2D(List<Point3D> points, DrawingParameters parameters)
         {
             float rangeX = parameters.MaxX - parameters.MinX;
@@ -262,6 +292,10 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
             }
         }
 
+        /// <summary>
+        /// Останавливает все активные потоки вычислений.
+        /// Вызывается при закрытии формы или перезапуске вычислений.
+        /// </summary>
         private void StopThreads()
         {
             if (_cancellationTokenSource != null) {
@@ -283,6 +317,9 @@ namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp
             _threads.Clear();
         }
 
+        /// <summary>
+        /// Очищает файл результатов перед новыми вычислениями.
+        /// </summary>
         private void ClearFiles()
         {
             try {

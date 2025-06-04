@@ -1,5 +1,10 @@
 ﻿namespace ProgrammingTechnologiesLaboratoryWork6_2_CSharp;
 
+/// <summary>
+/// Класс для управления параметрами отрисовки трехмерного графика.
+/// Содержит настройки масштабирования, границы осей и центры отрисовки.
+/// Используется для преобразования трехмерных координат в двухмерные для отображения.
+/// </summary>
 public class DrawingParameters
 {
     public float MinX { get; set; }
